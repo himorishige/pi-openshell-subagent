@@ -70,6 +70,15 @@ providers: github
 ---
 ```
 
+## Skill for the parent
+
+The package also ships a skill (`skills/openshell-subagent/SKILL.md`) that tells the parent Pi when to delegate, how to
+write agent definitions, what to check before the first delegation, how to prepare resident sandboxes, and what a
+failure means. It deliberately leaves provider creation (handing keys to the gateway) to a person. For gateway and
+provider diagnosis it points to NVIDIA's own skills in the OpenShell repository, [`skills/debug-openshell-cluster`](https://github.com/NVIDIA/OpenShell/tree/main/skills/debug-openshell-cluster)
+and [`skills/debug-inference`](https://github.com/NVIDIA/OpenShell/tree/main/skills/debug-inference), which are
+maintained upstream and not copied here.
+
 ## Configure
 
 | Variable                            | Default         | Meaning                                                              |
