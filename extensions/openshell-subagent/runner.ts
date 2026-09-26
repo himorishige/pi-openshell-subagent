@@ -10,7 +10,14 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { AgentConfig } from "./agents.ts";
-import { connectActiveGateway, deleteSandbox, execLines, spawnSandbox, type GatewayConnection } from "./sandbox.ts";
+import {
+  connectActiveGateway,
+  deleteSandbox,
+  ensureResidentSandbox,
+  execLines,
+  spawnSandbox,
+  type GatewayConnection,
+} from "./sandbox.ts";
 
 export interface RunnerConfig {
   /** Workload template name (image, cpu, memory). */
@@ -81,7 +88,7 @@ export interface StreamMessage {
 }
 
 export interface Timeline {
-  createMs: number; // createFromTemplate + waitReady
+  createMs: number; // createFromTemplate + waitReady (resident: start + waitReady, 0 if already Ready)
   providersMs: number; // extra wait until the attached providers report READY
   execMs: number; // pi run inside the sandbox
   deleteMs: number; // delete + waitDeleted
@@ -115,6 +122,8 @@ export interface SingleResult {
   /** First 22 chars of the credential env var as seen inside the sandbox (proves the resolve token, never a key). */
   credentialPrefix?: string;
   aborted?: boolean;
+  /** True when the run used a resident sandbox (not created, not deleted). */
+  resident?: boolean;
 }
 
 export function emptyUsage(): UsageStats {
@@ -192,7 +201,8 @@ export async function runSubagent(
   opts: RunOptions = {},
 ): Promise<SingleResult> {
   const { client } = await gateway();
-  const sandbox = `sa-${sandboxSafe(agent.name)}-${shortId()}`;
+  const resident = Boolean(agent.sandbox);
+  const sandbox = agent.sandbox ?? `sa-${sandboxSafe(agent.name)}-${shortId()}`;
   const model = agent.model ?? config.defaultModel ?? "";
   const result: SingleResult = {
     agent: agent.name,
@@ -204,23 +214,31 @@ export async function runSubagent(
     usage: emptyUsage(),
     model,
     timeline: { createMs: 0, providersMs: 0, execMs: 0, deleteMs: 0, totalMs: 0 },
+    resident,
   };
   const t0 = performance.now();
   const emit = () => opts.onUpdate?.(result);
 
   let created = false;
   try {
-    const providers = agent.providers ?? config.providers;
-    const spawned = await spawnSandbox(client, {
-      template: agent.template ?? config.template,
-      name: sandbox,
-      providers,
-      labels: { role: "subagent", agent: sandboxSafe(agent.name), parent: config.parent },
-      signal: opts.signal,
-    });
-    created = true;
-    result.timeline.createMs = spawned.readyMs;
-    result.timeline.providersMs = spawned.providersMs;
+    let providers = agent.providers ?? config.providers;
+    if (resident) {
+      const res = await ensureResidentSandbox(client, sandbox, { signal: opts.signal });
+      providers = res.providers;
+      result.timeline.createMs = res.startMs;
+      result.timeline.providersMs = res.providersMs;
+    } else {
+      const spawned = await spawnSandbox(client, {
+        template: agent.template ?? config.template,
+        name: sandbox,
+        providers,
+        labels: { role: "subagent", agent: sandboxSafe(agent.name), parent: config.parent },
+        signal: opts.signal,
+      });
+      created = true;
+      result.timeline.createMs = spawned.readyMs;
+      result.timeline.providersMs = spawned.providersMs;
+    }
     emit();
 
     const args = [config.launch, "--mode", "json", "-p", "--no-session"];
@@ -231,6 +249,7 @@ export async function runSubagent(
 
     const tExec = performance.now();
     const exitCode = await execLines(client, sandbox, args, {
+      workdir: agent.workdir,
       timeoutSecs: config.timeoutSecs,
       signal: opts.signal,
       onStderr: (chunk) => {
@@ -323,6 +342,7 @@ function appendResult(file: string, r: SingleResult): void {
       exitCode: r.exitCode,
       stopReason: r.stopReason,
       aborted: r.aborted ?? false,
+      resident: r.resident ?? false,
       timeline: r.timeline,
       usage: r.usage,
       routing: r.routing,

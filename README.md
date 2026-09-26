@@ -51,6 +51,25 @@ template: pi-review
 ---
 ```
 
+## Resident sandboxes (large codebases)
+
+OpenShell has no bind mount, so a sub-agent gets code by `git clone` (with a GitHub provider) or by
+`openshell sandbox upload`. For a large repository, create one sandbox per role once, clone there, and let the agent
+reuse it: put `sandbox: <name>` (and optionally `workdir: <path>`) in the agent definition. The extension then skips
+creation, starts the sandbox if it is stopped, waits for its providers, runs pi in `workdir`, and never deletes it.
+Hand results back through Git (push a branch) rather than files. Reusing a Ready sandbox costs about 40 ms; starting a
+stopped one costs about 0.5 s plus roughly 10 s for the providers to be installed again.
+
+```yaml
+---
+name: repo-worker
+description: Works inside the project's resident sandbox
+sandbox: proj-worker
+workdir: /sandbox/repo
+providers: github
+---
+```
+
 ## Configure
 
 | Variable                            | Default         | Meaning                                                              |

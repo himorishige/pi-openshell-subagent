@@ -1,5 +1,7 @@
 // Agent definitions for openshell-subagent: one markdown file per agent with frontmatter
 // (name / description / tools / model / providers / template) and the system prompt as the body.
+// `sandbox` switches the agent to resident mode: an existing sandbox (created once, e.g. with a cloned repo) is
+// reused and started if stopped, instead of being created and deleted per call. `workdir` sets where pi runs.
 // `providers` and `template` override the extension-wide defaults, so each agent can get its own credentials,
 // egress policy (via the template's image) and model: a web-search agent with a search provider, a PR-review agent
 // with a read-only GitHub token, and so on.
@@ -18,6 +20,10 @@ export interface AgentConfig {
   providers?: string[];
   /** Workload template for this agent's sandbox (overrides OPENSHELL_SUBAGENT_TEMPLATE). */
   template?: string;
+  /** Resident mode: reuse this existing sandbox (start it if stopped) and never delete it. */
+  sandbox?: string;
+  /** Working directory inside the sandbox for the sub-agent (e.g. a cloned repo). */
+  workdir?: string;
   systemPrompt: string;
   filePath: string;
 }
@@ -66,6 +72,8 @@ export function loadAgents(dir: string): AgentConfig[] {
       model: frontmatter.model || undefined,
       providers: parseToolList(frontmatter.providers),
       template: frontmatter.template || undefined,
+      sandbox: frontmatter.sandbox || undefined,
+      workdir: frontmatter.workdir || undefined,
       systemPrompt: body.trim(),
       filePath,
     });

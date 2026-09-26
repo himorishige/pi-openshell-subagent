@@ -67,7 +67,7 @@ export default function (pi: ExtensionAPI) {
     label: "OpenShell sub-agent",
     description: [
       "Delegate a task to a sub-agent that runs in its own OpenShell sandbox (isolated context, isolated network and credentials).",
-      "Modes: single (agent + task) or parallel (tasks array). The sub-agent has no access to this machine's files;",
+      "Modes: single (agent + task) or parallel (tasks array). Agents with a `sandbox` in their definition reuse that resident sandbox (e.g. one with a cloned repo); others get a fresh sandbox per call. The sub-agent has no access to this machine's files;",
       "give it everything it needs in the task text and expect a text answer back.",
       `Agents: ${formatAgentList(loadAgents(agentsDir()))}.`,
     ].join(" "),

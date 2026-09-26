@@ -135,6 +135,49 @@ export async function spawnSandbox(client: OpenShellClient, opts: SpawnSandboxOp
   return { ref, readyMs, providersMs: Math.round(performance.now() - started) - readyMs };
 }
 
+export interface ResidentSandbox {
+  ref: SandboxRef;
+  /** Milliseconds spent starting the sandbox (0 when it was already Ready). */
+  startMs: number;
+  /** Milliseconds until every attached provider reported READY. */
+  providersMs: number;
+  /** Providers found attached to the sandbox. */
+  providers: string[];
+  /** True when the sandbox had to be started. */
+  started: boolean;
+}
+
+/**
+ * Resident mode: reuse a sandbox that was created once (typically with a cloned repository in it). If it is
+ * stopped, completed or errored, start it again and wait for Ready; then wait for its providers like spawnSandbox
+ * does. The caller must never delete a resident sandbox.
+ */
+export async function ensureResidentSandbox(
+  client: OpenShellClient,
+  name: string,
+  opts: { readyTimeoutSecs?: number; signal?: AbortSignal } = {},
+): Promise<ResidentSandbox> {
+  const t0 = performance.now();
+  let ref = await client.sandbox.get(name);
+  const workspace = ref.workspace || "default";
+  let started = false;
+  if (ref.phase === "stopped" || ref.phase === "completed" || ref.phase === "error") {
+    await client.raw.startSandbox({
+      name,
+      requestId: "",
+      workspaceScope: { selection: { case: "workspace", value: workspace } },
+    });
+    started = true;
+  }
+  if (ref.phase !== "ready") {
+    ref = await client.sandbox.waitReady(name, opts.readyTimeoutSecs ?? 180, { signal: opts.signal });
+  }
+  const startMs = Math.round(performance.now() - t0);
+  const providers = (await client.sandbox.listAllProviders(name)).map((p) => p.name);
+  await waitProvidersReady(client, name, providers, 60, opts.signal, workspace);
+  return { ref, startMs, providersMs: Math.round(performance.now() - t0) - startMs, providers, started };
+}
+
 export interface ExecLinesOptions {
   workdir?: string;
   environment?: Record<string, string>;
