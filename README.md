@@ -35,7 +35,21 @@ pi install /absolute/path/to/pi-openshell-subagent
 ```
 
 Copy or symlink the agent definitions you want into `~/.pi/agent/agents/` or point `OPENSHELL_SUBAGENT_AGENTS_DIR`
-at a directory of `*.md` files (frontmatter `name` / `description` / optional `tools` / `model`, body = system prompt).
+at a directory of `*.md` files (frontmatter `name` / `description` / optional `tools` / `model` / `providers` /
+`template`, body = system prompt). `providers` and `template` override the extension-wide defaults per agent, so a
+web-search agent can carry only a search-API provider and a PR-review agent only a read-only GitHub provider, each
+with its own model and tool allowlist.
+
+```yaml
+---
+name: pr-reviewer
+description: Reads a pull request and reports findings
+tools: read, grep, bash
+model: openai/gpt-5-mini
+providers: github
+template: pi-review
+---
+```
 
 ## Configure
 

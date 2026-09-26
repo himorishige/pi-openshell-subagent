@@ -210,10 +210,11 @@ export async function runSubagent(
 
   let created = false;
   try {
+    const providers = agent.providers ?? config.providers;
     const spawned = await spawnSandbox(client, {
-      template: config.template,
+      template: agent.template ?? config.template,
       name: sandbox,
-      providers: config.providers,
+      providers,
       labels: { role: "subagent", agent: sandboxSafe(agent.name), parent: config.parent },
       signal: opts.signal,
     });

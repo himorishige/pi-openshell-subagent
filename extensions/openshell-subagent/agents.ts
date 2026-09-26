@@ -1,5 +1,8 @@
 // Agent definitions for openshell-subagent: one markdown file per agent with frontmatter
-// (name / description / tools / model) and the system prompt as the body.
+// (name / description / tools / model / providers / template) and the system prompt as the body.
+// `providers` and `template` override the extension-wide defaults, so each agent can get its own credentials,
+// egress policy (via the template's image) and model: a web-search agent with a search provider, a PR-review agent
+// with a read-only GitHub token, and so on.
 // Trimmed from Pi's examples/extensions/subagent/agents.ts: a single directory, no project-scope discovery,
 // because the sub-agent runs in a sandbox and must not pick up repo-controlled prompts by accident.
 
@@ -11,6 +14,10 @@ export interface AgentConfig {
   description: string;
   tools?: string[];
   model?: string;
+  /** Providers attached to this agent's sandbox (overrides OPENSHELL_SUBAGENT_PROVIDERS). */
+  providers?: string[];
+  /** Workload template for this agent's sandbox (overrides OPENSHELL_SUBAGENT_TEMPLATE). */
+  template?: string;
   systemPrompt: string;
   filePath: string;
 }
@@ -57,6 +64,8 @@ export function loadAgents(dir: string): AgentConfig[] {
       description: frontmatter.description,
       tools: parseToolList(frontmatter.tools),
       model: frontmatter.model || undefined,
+      providers: parseToolList(frontmatter.providers),
+      template: frontmatter.template || undefined,
       systemPrompt: body.trim(),
       filePath,
     });
