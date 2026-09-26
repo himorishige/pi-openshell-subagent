@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import tls from "node:tls";
 import { OpenShellClient, type SandboxRef } from "@nvidia/openshell-sdk";
 
 export interface GatewayConnection {
@@ -33,8 +34,21 @@ export function activeGatewayName(): string {
   return readFileSync(join(configDir(), "active_gateway"), "utf8").trim();
 }
 
+/**
+ * Running inside an OpenShell sandbox, the gateway is reachable only by IP (policy DNS refuses the host-gateway
+ * aliases when the driver has no trusted gateway address) while its certificate carries host names. Set
+ * OPENSHELL_GATEWAY_TLS_NAME to the name the certificate is issued for; the chain is still verified against the CA.
+ */
+function pinServerIdentity(): void {
+  const name = process.env.OPENSHELL_GATEWAY_TLS_NAME;
+  if (!name) return;
+  const original = tls.checkServerIdentity;
+  tls.checkServerIdentity = (_host, cert) => original(name, cert);
+}
+
 /** Build an SDK client for the active local gateway (mTLS) or a remote one (OIDC bearer via OPENSHELL_TOKEN). */
 export async function connectActiveGateway(): Promise<GatewayConnection> {
+  pinServerIdentity();
   const gatewayName = activeGatewayName();
   const dir = join(configDir(), "gateways", gatewayName);
   const meta = JSON.parse(readFileSync(join(dir, "metadata.json"), "utf8")) as GatewayMetadata;

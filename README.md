@@ -84,6 +84,7 @@ providers: github
 | `OPENSHELL_SUBAGENT_CREDENTIAL_ENV` | `ANTHROPIC_API_KEY` | Env var whose first 22 chars are recorded (shows the resolve token, never a key) |
 | `OPENSHELL_SUBAGENT_ROUTING_LOG`    | (off)           | Optional JSONL routing log inside the sandbox to summarise           |
 | `OPENSHELL_SUBAGENT_KEEP=1`         | (off)           | Keep sandboxes after the run for debugging                           |
+| `OPENSHELL_GATEWAY_TLS_NAME`        | (off)           | Verify the gateway certificate against this host name when the gateway URL is an IP (running the parent inside a sandbox) |
 
 ## Use
 
@@ -98,8 +99,11 @@ expect a text answer.
   `getSandboxProviderStatus` to report READY before starting pi. Without that wait the model stream can be closed with
   `policy generation is stale`.
 - Aborting the parent's tool call aborts the exec and deletes the sandbox.
-- The parent must run outside the sandboxes: with the docker driver of the tested build, a sandbox cannot resolve the
-  gateway host (`policy_dns_trusted_gateway_unavailable`).
+- Running the parent inside a sandbox is possible but not recommended: the sandbox cannot resolve the gateway host
+  (`policy_dns_trusted_gateway_unavailable` with a name-based docker `grpc_endpoint`), so point the gateway metadata at
+  the gateway IP, allow that IP with `tls: skip` in the sandbox policy (the supervisor must not terminate the mTLS), and
+  set `OPENSHELL_GATEWAY_TLS_NAME` to the certificate's host name. The parent then holds gateway credentials, so use an
+  OIDC client-credentials identity scoped to one workspace rather than a local mTLS admin bundle.
 
 ## 日本語
 
