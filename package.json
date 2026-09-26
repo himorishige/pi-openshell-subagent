@@ -1,0 +1,20 @@
+{
+  "name": "pi-openshell-subagent",
+  "version": "0.1.0",
+  "description": "Pi coding agent extension that runs sub-agents inside NVIDIA OpenShell sandboxes through the OpenShell TypeScript SDK",
+  "license": "MIT",
+  "type": "module",
+  "repository": { "type": "git", "url": "git+https://github.com/himorishige/pi-openshell-subagent.git" },
+  "pi": {
+    "extensions": ["./extensions/openshell-subagent/index.ts"]
+  },
+  "dependencies": {
+    "@nvidia/openshell-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.87.1",
+    "@types/node": "^22.0.0",
+    "bun-types": "^1.3.0",
+    "typescript": "^5.9.3"
+  }
+}
